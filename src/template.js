@@ -37,6 +37,8 @@
     { id: 4, name: '新概念英语第四册', short: '新概念四', color: '#c026d3' }
   ];
   const LS_PREFIX = 'nceaf:';
+  /* 版本号：构建时由 scripts/build.js 注入，与元数据 @version 保持一致 */
+  const SCRIPT_VERSION = '__NCE_VERSION__';
 
   /* ==================== 存储（GM 优先，降级 localStorage） ==================== */
   function gmGet(key, def) {
@@ -503,7 +505,7 @@
     showPanel: () => { gmSet('nce:ui', 'panel'); whenDomReady().then(() => initPanel(true)); },
     togglePanel: () => togglePanelUi(),
     isSilent: () => isSilent(),
-    version: '1.1.3'
+    version: SCRIPT_VERSION
   };
   window.CourseBandNCE = api;
   try { PAGE.CourseBandNCE = api; } catch (e) { /* ignore */ }

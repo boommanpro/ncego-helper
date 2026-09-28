@@ -1,0 +1,84 @@
+name: Build Userscript
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: 构建并校验用户脚本
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 配置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 解压课件数据
+        run: |
+          for b in 1 2 3 4; do
+            unzip -o -q "data/nce${b}.zip" -d "downloads/nce${b}/"
+          done
+          echo "课件 JSON 数量: $(find downloads -name '*.json' | wc -l)"
+
+      - name: 解析版本号
+        id: version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            version="${GITHUB_REF_NAME#v}"
+            origin="git tag ${GITHUB_REF_NAME}"
+          else
+            version="$(grep -oE '@version[[:space:]]+[0-9]+\.[0-9]+\.[0-9]+' src/template.js | head -1 | awk '{print $2}')"
+            origin="src/template.js"
+          fi
+          if [[ -z "${version}" ]]; then
+            echo "无法解析版本号" >&2
+            exit 1
+          fi
+          echo "value=${version}" >> "$GITHUB_OUTPUT"
+          echo "版本号 ${version}（来源：${origin}）" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 构建（注入版本号）
+        env:
+          NCE_VERSION: ${{ steps.version.outputs.value }}
+        run: node scripts/build.js
+
+      - name: 校验产物
+        run: |
+          node --check courseband-nce.user.js
+          grep -m1 '@version' courseband-nce.user.js
+          node test/smoke-test.js
+
+      - name: 生成带版本号的产物副本
+        run: |
+          cp courseband-nce.user.js "courseband-nce-${{ steps.version.outputs.value }}.user.js"
+          ls -lh courseband-nce*.user.js
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: courseband-nce-${{ steps.version.outputs.value }}
+          path: |
+            courseband-nce.user.js
+            courseband-nce-${{ steps.version.outputs.value }}.user.js
+          if-no-files-found: error
+
+      - name: 发布 Release（仅 tag 触发）
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            "courseband-nce-${{ steps.version.outputs.value }}.user.js" \
+            --title "新概念英语课件自动导入 ${GITHUB_REF_NAME}" \
+            --generate-notes

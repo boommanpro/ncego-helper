@@ -59,9 +59,11 @@ window.CourseBandNCE.isSilent();              // 当前是否为静默模式
 ## 目录结构
 
 ```
+data/nce1-4.zip          课件原始数据（构建输入，共约 1.5MB）
+.github/workflows/build.yml   GitHub Actions 自动构建流程
 courseband-nce.user.js   构建产物（已内嵌全部课件数据，直接安装这个）
-src/template.js          用户脚本源码模板（含 __NCE_DATA_B64__ 占位符）
-scripts/build.js         构建脚本：合并课件 → gzip → base64 → 注入模板
+src/template.js          用户脚本源码模板（含 __NCE_DATA_B64__ / __NCE_VERSION__ 占位符）
+scripts/build.js         构建脚本：合并课件 → gzip → base64 → 注入模板与版本号
 test/smoke-test.js       无头冒烟测试（Node + DOM 桩，15 项断言）
 test/parser.html         带 textarea 导入区的模拟页面
 test/fileonly.html       仅文件导入框的模拟页面
@@ -70,21 +72,47 @@ test/noparser.html       无导入区的模拟页面（测试预览回退）
 
 ## 构建
 
-课件原始 JSON 不入库，需自行准备到 `downloads/`：
-
-```
-downloads/nce1/nce1/*.json
-downloads/nce2/nce2/*.json
-downloads/nce3/nce3/*.json
-downloads/nce4/nce4/*.json
-```
-
-然后执行：
+课件数据以 zip 形式存放于 `data/`（`nce1.zip` ~ `nce4.zip`，共约 1.5MB），解压后构建：
 
 ```bash
+for b in 1 2 3 4; do unzip -o data/nce$b.zip -d downloads/nce$b/; done
 node scripts/build.js      # 生成 courseband-nce.user.js
 node test/smoke-test.js    # 运行冒烟测试
 ```
+
+`downloads/` 仅存放解压结果，不入库。
+
+### 版本号
+
+产物中的版本号有两处且始终一致：元数据 `// @version` 与运行时 `window.CourseBandNCE.version`。
+默认取 `src/template.js` 的 `@version`，也可用 `NCE_VERSION` 环境变量覆盖：
+
+```bash
+NCE_VERSION=1.2.0 node scripts/build.js
+```
+
+## 自动构建
+
+[`.github/workflows/build.yml`](.github/workflows/build.yml) 会在以下时机自动构建：
+
+| 触发 | 版本号来源 | 产出 |
+| --- | --- | --- |
+| push 到 `main` | `src/template.js` 的 `@version` | Actions Artifact（`courseband-nce-<版本>`） |
+| 推送 `v*` tag | tag 名（去掉 `v` 前缀） | Artifact + Release 附件 `courseband-nce-<版本>.user.js` |
+| 手动 `workflow_dispatch` | 同 push 到 `main` | Artifact |
+
+流程：解压 `data/*.zip` → 解析版本号 → `node scripts/build.js`（注入版本号）→
+`node --check` + 冒烟测试 → 上传产物（tag 时创建 Release）。
+
+发布新版本：
+
+```bash
+# 1. 更新 src/template.js 的 @version
+# 2. 打 tag 并推送，CI 会以 tag 作为版本号构建并发布 Release
+git tag v1.2.0 && git push origin v1.2.0
+```
+
+## 课件协议
 
 课件 JSON 需符合 CourseBand 协议：
 

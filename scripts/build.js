@@ -42,12 +42,27 @@ function main() {
     console.error('模板中缺少占位符 __NCE_DATA_B64__');
     process.exit(1);
   }
-  const out = template.replace('__NCE_DATA_B64__', b64);
+
+  // 版本号：CI 通过 NCE_VERSION（由 git tag 推导）传入；本地构建沿用模板 @version。
+  // 产物中元数据 @version 与运行时 API 的 version 保持同一值。
+  const tplVersion = (template.match(/^\/\/ @version\s+(\S+)/m) || [])[1];
+  if (!tplVersion) {
+    console.error('模板中缺少 @version 元数据');
+    process.exit(1);
+  }
+  const version = process.env.NCE_VERSION || tplVersion;
+
+  const out = template
+    .replace('__NCE_DATA_B64__', b64)
+    .replace(/__NCE_VERSION__/g, version)
+    .replace(/^\/\/ @version\s+\S+$/m, '// @version      ' + version);
+
   const target = path.join(root, 'courseband-nce.user.js');
   fs.writeFileSync(target, out, 'utf8');
 
   console.log('课件总数: ' + total);
   console.log('书籍: ' + Object.keys(data).map((b) => '第' + b + '册(' + Object.keys(data[b]).length + '课)').join(' / '));
+  console.log('版本号: ' + version + (process.env.NCE_VERSION ? '（来自 NCE_VERSION 环境变量）' : '（来自模板 @version）'));
   console.log('原始 JSON: ' + (json.length / 1048576).toFixed(2) + ' MB');
   console.log('gzip: ' + (gz.length / 1048576).toFixed(2) + ' MB');
   console.log('base64: ' + (b64.length / 1048576).toFixed(2) + ' MB');
