@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>仅文件上传导入（测试 file input 填充路径）</title>
+  <style>
+    body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f1f5f9; color: #111827; padding: 40px 20px; }
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); padding: 20px; max-width: 640px; margin: 0 auto; }
+    h1 { font-size: 18px; margin: 0 0 6px; }
+    .sub { color: #6b7280; font-size: 13px; margin-bottom: 18px; }
+    #fileInput { font-size: 13px; }
+    .result { margin-top: 14px; padding: 12px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; font-size: 14px; display: none; }
+    .result b { color: #065f46; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>仅文件上传导入</h1>
+    <p class="sub">页面<b>没有 textarea</b>，只有 file input —— 用于验证插件的 DataTransfer 文件填充路径。</p>
+    <input type="file" id="fileInput" accept=".json,application/json">
+    <div class="result" id="result"></div>
+  </div>
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const result = document.getElementById('result');
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files && fileInput.files[0];
+      if (!f) { result.style.display = 'none'; return; }
+      f.text().then((t) => {
+        const m = JSON.parse(t).metadata;
+        result.style.display = 'block';
+        result.innerHTML = '✅ 通过文件上传导入成功：<b>' + m.title + '</b>（' + m.chinese + '）book_id=' + m.book_id + ' lesson_id=' + m.lesson_id;
+      });
+    });
+  </script>
+  <script src="../courseband-nce.user.js"></script>
+</body>
+</html>

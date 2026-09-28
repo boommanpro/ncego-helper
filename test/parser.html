@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>课件帮 CourseBand 解析器模拟页（用于测试 NCE 自动填充插件）</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; margin: 0; background: #f1f5f9; color: #111827; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 24px 16px 96px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .sub { color: #6b7280; font-size: 13px; margin-bottom: 20px; }
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.08); padding: 18px; margin-bottom: 16px; }
+    .card h2 { font-size: 14px; margin: 0 0 12px; color: #374151; }
+    textarea { width: 100%; height: 150px; border: 1px solid #d1d5db; border-radius: 8px; padding: 10px; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
+    .file-row { display: flex; align-items: center; gap: 10px; }
+    .file-row input[type="file"] { font-size: 13px; }
+    .result { margin-top: 12px; padding: 12px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; font-size: 14px; }
+    .result.error { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+    .result b { color: #065f46; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: #e0e7ff; color: #3730a3; margin-right: 6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>课件解析器（本地模拟页）</h1>
+    <p class="sub">模拟 courseband.com 课件解析器的「粘贴协议代码」与「上传 JSON」两种导入方式，用于验证 Tampermonkey 插件的自动填充行为。</p>
+
+    <div class="card">
+      <h2>方式一：粘贴 JSON 协议代码（textarea）</h2>
+      <textarea id="jsonInput" placeholder="插件自动填充后将在此显示完整 JSON……"></textarea>
+      <div id="resultText" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="card">
+      <h2>方式二：上传本地 JSON 课件（file input）</h2>
+      <div class="file-row">
+        <input type="file" id="fileInput" accept=".json,application/json">
+        <span style="font-size:13px;color:#6b7280;">插件会通过 DataTransfer 自动放入文件并触发 change 事件</span>
+      </div>
+      <div id="resultFile" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="card">
+      <h2>说明</h2>
+      <p style="font-size:13px;color:#374151;line-height:1.8;margin:0;">
+        <span class="tag">自动加载</span>插件默认在页面打开时自动加载上次学习的课程（可点击右下角悬浮面板关闭）。
+        <span class="tag">深链</span>访问 <code>?book=2&lesson=76</code> 可直接加载指定课程。
+        <span class="tag">手动</span>点击悬浮面板选择册数/课次，可「一键填充」或「预览」。
+      </p>
+    </div>
+  </div>
+
+  <script>
+    /* 模拟解析器：textarea 输入事件 → 实时解析并显示课程信息 */
+    const textarea = document.getElementById('jsonInput');
+    const fileInput = document.getElementById('fileInput');
+    const resultText = document.getElementById('resultText');
+    const resultFile = document.getElementById('resultFile');
+
+    function renderInfo(container, lesson) {
+      const m = lesson.metadata || {};
+      container.style.display = 'block';
+      container.className = 'result';
+      container.innerHTML = '✅ 解析成功：<b>' + (m.title || '') + '</b>' +
+        (m.chinese ? ' <span style="color:#6b7280;">（' + m.chinese + '）</span>' : '') +
+        '<br>book_id=' + m.book_id + ' lesson_id=' + m.lesson_id +
+        ' ｜ 内容段数=' + ((lesson.content && lesson.content.html_structure && lesson.content.html_structure.content || '').length) +
+        ' ｜ 字幕行数=' + ((lesson.content && lesson.content.subtitles && lesson.content.subtitles.data || '').length);
+    }
+    function renderError(container, msg) {
+      container.style.display = 'block';
+      container.className = 'result error';
+      container.textContent = '❌ 解析失败：' + msg;
+    }
+
+    textarea.addEventListener('input', () => {
+      const t = textarea.value.trim();
+      if (!t) { resultText.style.display = 'none'; return; }
+      try { renderInfo(resultText, JSON.parse(t)); }
+      catch (e) { renderError(resultText, e.message); }
+    });
+
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files && fileInput.files[0];
+      if (!f) { resultFile.style.display = 'none'; return; }
+      f.text().then((t) => {
+        try { renderInfo(resultFile, JSON.parse(t)); }
+        catch (e) { renderError(resultFile, e.message); }
+      });
+    });
+
+    /* 同时监听插件派发的全局事件，展示两种导入方式的真实触发情况 */
+    window.addEventListener('courseband:lesson', (e) => {
+      const m = e.detail.metadata || {};
+      console.log('[mock-parser] courseband:lesson →', m.title, '(book ' + m.book_id + ', lesson ' + m.lesson_id + ')');
+    });
+  </script>
+  <!-- 测试时以 <script> 直接加载用户脚本（注释形式的 UserScript 头在网页加载时无害） -->
+  <script src="../courseband-nce.user.js"></script>
+</body>
+</html>
