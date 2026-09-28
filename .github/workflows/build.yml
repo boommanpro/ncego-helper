@@ -27,6 +27,7 @@ jobs:
       - name: 解压课件数据
         run: |
           for b in 1 2 3 4; do
+            mkdir -p "downloads/nce${b}"
             unzip -o -q "data/nce${b}.zip" -d "downloads/nce${b}/"
           done
           echo "课件 JSON 数量: $(find downloads -name '*.json' | wc -l)"

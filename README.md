@@ -75,7 +75,7 @@ test/noparser.html       无导入区的模拟页面（测试预览回退）
 课件数据以 zip 形式存放于 `data/`（`nce1.zip` ~ `nce4.zip`，共约 1.5MB），解压后构建：
 
 ```bash
-for b in 1 2 3 4; do unzip -o data/nce$b.zip -d downloads/nce$b/; done
+for b in 1 2 3 4; do mkdir -p downloads/nce$b && unzip -o data/nce$b.zip -d downloads/nce$b/; done
 node scripts/build.js      # 生成 courseband-nce.user.js
 node test/smoke-test.js    # 运行冒烟测试
 ```
